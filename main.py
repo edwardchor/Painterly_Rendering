@@ -9,6 +9,7 @@ import time
 MAX_STROKE=100
 MIN_STROKE=10
 f_c=0.9
+f_g=0.5
 def blur(img,R):
     res=cv2.blur(img,ksize=(R,R))
     return res
@@ -65,15 +66,17 @@ T=5000
 def paintLayer(canvas,ref,R):
     S=[]
     D=np.sum((canvas[:,:,:3]-ref[:,:,:3])**2,axis=2)
-    grid=R
+    grid=int(f_g*R)
+    if grid<=0:
+        return canvas
     H,W,C=ref.shape
 
     gs_ref=np.sum(ref[:,:,:3]*np.array([0.299,0.587,0.114]),axis=2)
     REF_GRAD_X=cv2.Sobel(gs_ref,cv2.CV_64F,1,0,ksize=5)
     REF_GRAD_Y=cv2.Sobel(gs_ref, cv2.CV_64F, 0, 1, ksize=5)
 
-    for i in range(grid//2,H-grid//2,grid):
-        for j in range(grid//2, W-grid//2,grid):
+    for i in range(0,H,grid):
+        for j in range(0, W,grid):
             area_err=np.sum(D[i-grid//2:i+grid//2,j-grid//2:j+grid//2],axis=(0,1))//grid**2
             if area_err>T:
                 xy=np.argmax(D[i-grid//2:i+grid//2,j-grid//2:j+grid//2])
@@ -103,6 +106,8 @@ def paint(sourceImg,Rs):
     H,W,C=sourceImg.shape
     canvas=np.zeros((H,W,3))
     for R in sorted(Rs,reverse=True):
+        if R<=1:
+            continue
         ref_img=blur(sourceImg,R)
         canvas=paintLayer(canvas,ref_img,R)
     return canvas
@@ -110,12 +115,13 @@ def paint(sourceImg,Rs):
 
 if __name__ == '__main__':
 
-    img=imageio.imread('ironman.jpg')
+    img=imageio.imread('stark.png')
     H,W,C=img.shape
 
-    Rs=[int(r*min(H,W)) for r in [1e-2,2e-2,3.5e-2,5e-2,7.5e-2]]
-
+    Rs=[int(r*min(H,W)) for r in [3e-3,5e-3,7e-3,1e-2,2e-2,3.5e-2,5e-2,5.5e-2]]
+    start=time.time()
     canvas=paint(img,Rs)
-
-    plt.imshow(canvas)
+    end=time.time()
+    print(f"running time:{end-start}")
+    plt.imshow(canvas.astype(np.int32))
     plt.show()
